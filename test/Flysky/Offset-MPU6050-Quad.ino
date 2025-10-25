@@ -51,10 +51,18 @@ void setup() {
   esc3.attach(26, 1000, 2000);
   esc4.attach(25, 1000, 2000);
 
-  // ARM & Kalibrasi ESC: Mulai 1000 μs, delay 2s (tanpa prop!)
+  // ARM & Kalibrasi ESC: Mulai 1000 μs, delay 3s (naikkin dari 2s buat ESC lambat seperti motor 4)
   armESCs();
+
+  // Test manual khusus Motor 4 (hapus ini setelah test sukses)
+  Serial.println("Test M4 manual di 1100us...");
+  esc4.writeMicroseconds(1100);
+  delay(3000);  // Rasain getar/beep 3 detik
+  esc4.writeMicroseconds(1000);
+  Serial.println("Test M4 selesai.");
+
   Serial.println("Quad Mixer Ready with MPU6050! (NO PROPELLER - Test RC dulu)");
-  Serial.println("Throttle <1050 = Failsafe (semua motor OFF)");
+  Serial.println("Throttle <1100 = Failsafe (semua motor OFF)");  // Naikkin threshold
 }
 
 void loop() {
@@ -63,14 +71,14 @@ void loop() {
   // Read MPU6050 data
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  // Baca RC channels (CH1-4: Roll, Pitch, Throttle, Yaw)
+  // Baca RC channels (CH1-4: Roll, Pitch, Throttle, Yaw) - Flysky i6: Throttle di CH3 (joystick kiri)
   int raw_roll  = ibus.readChannel(0);
   int raw_pitch = ibus.readChannel(1);
   int raw_throt = ibus.readChannel(2);
   int raw_yaw   = ibus.readChannel(3);
 
-  // Failsafe: Jika data invalid (-1/0) atau throttle rendah, matikan motor
-  if (raw_throt < 1050 || raw_roll < 0 || raw_pitch < 0 || raw_yaw < 0) {
+  // Failsafe: Naikkin threshold ke 1100 (ESC butuh lebih tinggi buat start, hindari delay parsial)
+  if (raw_throt < 1100 || raw_roll < 0 || raw_pitch < 0 || raw_yaw < 0) {
     writeAllESC(1000);  // Semua ke min
     Serial.println("FAILSAVE: Data hilang atau throttle rendah!");
     delay(50);
@@ -95,11 +103,11 @@ void loop() {
   int pwm3 = constrain((int)M3, 1000, 2000);
   int pwm4 = constrain((int)M4, 1000, 2000);
 
-  // Tulis ke ESC
+  // Tulis ke ESC: Urutan M4 dulu (pin 25) buat hindari queue delay di ESP32Servo
+  esc4.writeMicroseconds(pwm4);  // Prioritas M4
   esc1.writeMicroseconds(pwm1);
   esc2.writeMicroseconds(pwm2);
   esc3.writeMicroseconds(pwm3);
-  esc4.writeMicroseconds(pwm4);
 
   // Debug: Print RC & Motor & MPU6050 raw data (uncomment #define DEBUG di atas setup() untuk aktifkan)
   #ifdef DEBUG
@@ -107,19 +115,19 @@ void loop() {
                 raw_roll, raw_pitch, raw_throt, raw_yaw, pwm1, pwm2, pwm3, pwm4, ax, ay, az, gx, gy, gz);
   #endif
 
-  delay(5);  // ~200 Hz loop rate (cepat untuk mixer)
+  delay(2);  // ~400-500 Hz loop rate (kurangin dari 5ms, lebih cepat buat respons instan)
 }
 
 // Fungsi helper: Arm semua ESC
 void armESCs() {
   writeAllESC(1000);
-  delay(2000);  // Biarkan ESC kalibrasi (beep biasanya)
+  delay(3000);  // Naikkin dari 2s → 3s, biar ESC4 beep armed full
 }
 
-// Fungsi helper: Tulis nilai sama ke semua ESC
+// Fungsi helper: Tulis nilai sama ke semua ESC (urutan M4 dulu)
 void writeAllESC(int value) {
+  esc4.writeMicroseconds(value);  // Prioritas M4
   esc1.writeMicroseconds(value);
   esc2.writeMicroseconds(value);
   esc3.writeMicroseconds(value);
-  esc4.writeMicroseconds(value);
 }
