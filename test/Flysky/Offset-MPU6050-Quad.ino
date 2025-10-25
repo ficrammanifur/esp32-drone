@@ -1,207 +1,122 @@
 #include <IBusBM.h>
-#include <ESP32Servo.h>
-#include <Wire.h>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
-#include <math.h>  // Untuk atan2 complementary filter
+#include <ESP32Servo.h>  // Include benar untuk ESP32
+#include "Wire.h"
+#include "I2Cdev.h"
+#include "MPU6050.h"
 
-// iBUS & Serial
+#define SDA_PIN 21
+#define SCL_PIN 22
+
 HardwareSerial IBusSerial(1);
 IBusBM ibus;
 
-// ESC outputs
+// ESC outputs (ganti ke Servo class)
 Servo esc1; // M1 Front Right (CCW, GPIO14)
 Servo esc2; // M2 Front Left  (CW,  GPIO27)
 Servo esc3; // M3 Rear Right  (CW,  GPIO26)
 Servo esc4; // M4 Rear Left   (CCW, GPIO25)
 
+// Mixer gains (tune sesuai drone: 0.5-1.0; lebih rendah = lebih stabil)
+float roll_gain  = 0.7;
+float pitch_gain = 0.7;
+float yaw_gain   = 0.5;
+
 // MPU6050
-Adafruit_MPU6050 mpu;
-
-// Offsets dari kalibrasi Anda (hardcode untuk presisi; raw LSB)
-float gyro_offset[3]  = {-30.0f, -21.0f, -64.0f};   // Gyro X/Y/Z
-float accel_offset[3] = {-9942.0f, -6006.0f, 10957.0f}; // Accel X/Y/Z
-
-// Complementary filter alpha (0.98 = trust gyro lebih)
-float alpha = 0.98f;
-
-// PID Controllers (angle outer + rate inner; tune pelan)
-class PID {
-public:
-  float kp, ki, kd;
-  float setpoint, input, output;
-  float integral, prev_error;
-  unsigned long last_time;
-  float dt;
-
-  PID(float p, float i, float d) : kp(p), ki(i), kd(d), integral(0), prev_error(0), last_time(0) {}
-
-  float compute(float sp, float in) {
-    unsigned long now = millis();
-    dt = (now - last_time) / 1000.0f;  // Seconds
-    if (dt < 0.001f) dt = 0.001f;
-    last_time = now;
-
-    float error = sp - in;
-    integral += error * dt;
-    integral = constrain(integral, -50, 50);  // Anti-windup lebih ketat
-    float derivative = (error - prev_error) / dt;
-    output = kp * error + ki * integral + kd * derivative;
-    prev_error = error;
-    return output;
-  }
-};
-
-// PID untuk angle (outer loop: roll/pitch) & rate (inner: yaw/gyro)
-PID pid_roll_angle(4.0f, 0.3f, 0.1f);   // Angle roll
-PID pid_pitch_angle(4.0f, 0.3f, 0.1f);  // Angle pitch
-PID pid_roll_rate(2.5f, 0.1f, 0.05f);   // Rate roll (inner)
-PID pid_pitch_rate(2.5f, 0.1f, 0.05f);  // Rate pitch
-PID pid_yaw_rate(2.0f, 0.1f, 0.04f);    // Yaw rate
-
-// Armed status (via CH5 >1500)
-bool armed = false;
+MPU6050 accelgyro(0x68); // default address
+int16_t ax, ay, az, gx, gy, gz;
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(1000);  // Stabilkan serial
 
-  // I2C Init
-  Wire.begin();
-  Wire.setClock(400000);  // 400 kHz (cepat setelah fix wiring)
+  // I2C for MPU6050
+  Wire.begin(SDA_PIN, SCL_PIN);
+  accelgyro.initialize();
+  // Apply calibrated offsets
+  accelgyro.setXAccelOffset(-7493);
+  accelgyro.setYAccelOffset(-5781);
+  accelgyro.setZAccelOffset(8638);
+  accelgyro.setXGyroOffset(-28);
+  accelgyro.setYGyroOffset(-6);
+  accelgyro.setZGyroOffset(-66);
+  Serial.println("MPU6050 initialized with offsets.");
 
-  // iBUS Input
+  // iBUS Input (RX GPIO16, baud 115200)
   IBusSerial.begin(115200, SERIAL_8N1, 16, -1);
-  ibus.begin(IBusSerial, IBUSBM_NOTIMER);
+  ibus.begin(IBusSerial, IBUSBM_NOTIMER);  // Polling manual, hindari konflik timer dengan ESP32Servo
 
-  // MPU6050 Init
-  if (!mpu.begin()) {
-    Serial.println("MPU6050 not found! Check wiring.");
-    while (1) delay(10);
-  }
-  Serial.println("MPU6050 found & calibrated!");
-
-  // MPU Config
-  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
-  mpu.setGyroRange(MPU6050_RANGE_2000_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-
-  // Print offsets (dari kalibrasi Anda)
-  Serial.printf("Loaded offsets - Gyro: %.0f/%.0f/%.0f | Accel: %.0f/%.0f/%.0f\n",
-                gyro_offset[0], gyro_offset[1], gyro_offset[2],
-                accel_offset[0], accel_offset[1], accel_offset[2]);
-
-  // ESC Setup
-  esc1.attach(14, 1000, 2000);
+  // ESC PWM output (50Hz default, resolution 16-bit untuk presisi)
+  esc1.attach(14, 1000, 2000);  // Pin, min us, max us (kalibrasi otomatis)
   esc2.attach(27, 1000, 2000);
   esc3.attach(26, 1000, 2000);
   esc4.attach(25, 1000, 2000);
 
-  // Initial disarm
-  writeAllESC(1000);
-  delay(2000);
-  Serial.println("Quad FC Ready! Arm via CH5 >1500 (NO PROPELLER)");
-  Serial.println("Throttle <1050 = Disarm");
+  // ARM & Kalibrasi ESC: Mulai 1000 μs, delay 2s (tanpa prop!)
+  armESCs();
+  Serial.println("Quad Mixer Ready with MPU6050! (NO PROPELLER - Test RC dulu)");
+  Serial.println("Throttle <1050 = Failsafe (semua motor OFF)");
 }
 
 void loop() {
-  unsigned long loop_start = micros();
-  unsigned long now = millis();  // FIX: Hitung dt untuk filter
-  static unsigned long prev_time = 0;
-  float dt = (now - prev_time) / 1000.0f;  // Seconds untuk complementary filter
-  if (dt < 0.001f) dt = 0.001f;
-  prev_time = now;
+  ibus.loop();  // Proses iBUS data
 
-  ibus.loop();
+  // Read MPU6050 data
+  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  // Baca iBUS
-  int raw_roll  = ibus.readChannel(0);  // CH1: Roll setpoint
-  int raw_pitch = ibus.readChannel(1);  // CH2: Pitch setpoint
-  int raw_throt = ibus.readChannel(2);  // CH3: Throttle
-  int raw_yaw   = ibus.readChannel(3);  // CH4: Yaw rate
-  int raw_aux1  = ibus.readChannel(4);  // CH5: Arm switch
+  // Baca RC channels (CH1-4: Roll, Pitch, Throttle, Yaw)
+  int raw_roll  = ibus.readChannel(0);
+  int raw_pitch = ibus.readChannel(1);
+  int raw_throt = ibus.readChannel(2);
+  int raw_yaw   = ibus.readChannel(3);
 
-  // Arm/Disarm
-  armed = (raw_aux1 > 1500);
-  if (!armed) {
-    writeAllESC(1000);
-    if (raw_throt > 1050) Serial.println("ARM first! (CH5 up)");
+  // Failsafe: Jika data invalid (-1/0) atau throttle rendah, matikan motor
+  if (raw_throt < 1050 || raw_roll < 0 || raw_pitch < 0 || raw_yaw < 0) {
+    writeAllESC(1000);  // Semua ke min
+    Serial.println("FAILSAVE: Data hilang atau throttle rendah!");
     delay(50);
     return;
   }
 
-  // Failsafe (throttle low)
-  if (raw_throt < 1050) {
-    writeAllESC(1000);
-    Serial.println("FAILSAVE: Throttle low!");
-    delay(50);
-    return;
-  }
+  // Normalisasi RC: Center 1500 → 0, range ±500 (asumsi 1000-2000)
+  float roll  = (raw_roll  - 1500.0f);  // ±500 us
+  float pitch = (raw_pitch - 1500.0f);
+  float yaw   = (raw_yaw   - 1500.0f);
+  float throttle = raw_throt;  // Tetap 1000-2000 μs
 
-  // Scale setpoints (angle ±30° max dari PWM ±500)
-  float angle_set_roll  = (raw_roll  - 1500.0f) * 0.06f;  // ±30°
-  float angle_set_pitch = (raw_pitch - 1500.0f) * 0.06f;
-  float rate_set_yaw    = (raw_yaw   - 1500.0f) * 0.5f;   // ±250°/s
+  // X-FRAME MOTOR MIXER (standar Betaflight-style, float presisi)
+  float M1 = throttle + (-roll * roll_gain + pitch * pitch_gain - yaw * yaw_gain);  // Front Right: -roll +pitch -yaw
+  float M2 = throttle + ( roll * roll_gain + pitch * pitch_gain + yaw * yaw_gain);  // Front Left:  +roll +pitch +yaw
+  float M3 = throttle + (-roll * roll_gain - pitch * pitch_gain + yaw * yaw_gain);  // Rear Right:  -roll -pitch +yaw
+  float M4 = throttle + ( roll * roll_gain - pitch * pitch_gain - yaw * yaw_gain);  // Rear Left:  +roll -pitch -yaw
 
-  // Baca MPU6050
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  // Raw data dengan offsets (accel ke m/s²; gyro ke °/s)
-  float accel_x = (a.acceleration.x - accel_offset[0]) / 16384.0f * 9.81f;
-  float accel_y = (a.acceleration.y - accel_offset[1]) / 16384.0f * 9.81f;
-  float accel_z = (a.acceleration.z - accel_offset[2]) / 16384.0f * 9.81f;
-  float gyro_x  = (g.gyro.x - gyro_offset[0]) * 57.2958f;  // rad/s to °/s
-  float gyro_y  = (g.gyro.y - gyro_offset[1]) * 57.2958f;
-  float gyro_z  = (g.gyro.z - gyro_offset[2]) * 57.2958f;
-
-  // Complementary filter untuk angle (pitch/roll dari accel + gyro integration) - FIX: Gunakan dt lokal
-  static float angle_roll = 0, angle_pitch = 0;
-  float accel_roll  = atan2(accel_y, accel_z) * 57.2958f;   // °
-  float accel_pitch = atan2(-accel_x, sqrt(accel_y*accel_y + accel_z*accel_z)) * 57.2958f;
-  angle_roll  = alpha * (angle_roll  + gyro_y  * dt) + (1 - alpha) * accel_roll;
-  angle_pitch = alpha * (angle_pitch + gyro_x * dt) + (1 - alpha) * accel_pitch;
-
-  // PID: Angle outer → rate target, lalu rate inner
-  float rate_target_roll  = pid_roll_angle.compute(angle_set_roll, angle_roll);
-  float rate_target_pitch = pid_pitch_angle.compute(angle_set_pitch, angle_pitch);
-  pid_roll_rate.compute(rate_target_roll, gyro_y);   // Inner roll rate (gyro Y)
-  pid_pitch_rate.compute(rate_target_pitch, -gyro_x); // Inner pitch rate (gyro X, invert)
-  float yaw_cmd = pid_yaw_rate.compute(rate_set_yaw, gyro_z);
-
-  // Mixer (throttle + commands; scale PID output ke μs)
-  float throttle = raw_throt;
-  float roll_cmd  = pid_roll_rate.output * 10.0f;   // Scale ke ±500 μs max
-  float pitch_cmd = pid_pitch_rate.output * 10.0f;
-  float yaw_cmd_s = yaw_cmd * 8.0f;  // Yaw lebih sensitif
-
-  // X-FRAME
-  float M1 = throttle + (-roll_cmd + pitch_cmd - yaw_cmd_s);  // FR
-  float M2 = throttle + ( roll_cmd + pitch_cmd + yaw_cmd_s);  // FL
-  float M3 = throttle + (-roll_cmd - pitch_cmd + yaw_cmd_s);  // RR
-  float M4 = throttle + ( roll_cmd - pitch_cmd - yaw_cmd_s);  // RL
-
-  // Constrain & write
+  // Limit output ke 1000-2000 μs
   int pwm1 = constrain((int)M1, 1000, 2000);
   int pwm2 = constrain((int)M2, 1000, 2000);
   int pwm3 = constrain((int)M3, 1000, 2000);
   int pwm4 = constrain((int)M4, 1000, 2000);
+
+  // Tulis ke ESC
   esc1.writeMicroseconds(pwm1);
   esc2.writeMicroseconds(pwm2);
   esc3.writeMicroseconds(pwm3);
   esc4.writeMicroseconds(pwm4);
 
-  // Debug (uncomment #define DEBUG untuk print)
+  // Debug: Print RC & Motor & MPU6050 raw data (uncomment #define DEBUG di atas setup() untuk aktifkan)
   #ifdef DEBUG
-  Serial.printf("Angles:%.1f/%.1f | Rates:%.1f/%.1f/%.1f | PWM:%d/%d/%d/%d | Armed:%s\n",
-                angle_roll, angle_pitch, gyro_y, -gyro_x, gyro_z,
-                pwm1, pwm2, pwm3, pwm4, armed ? "YES" : "NO");
+  Serial.printf("Roll:%d Pitch:%d Throt:%d Yaw:%d | M1:%d M2:%d M3:%d M4:%d | AX:%d AY:%d AZ:%d GX:%d GY:%d GZ:%d\n",
+                raw_roll, raw_pitch, raw_throt, raw_yaw, pwm1, pwm2, pwm3, pwm4, ax, ay, az, gx, gy, gz);
   #endif
 
-  // Timing 200 Hz
-  while (micros() - loop_start < 5000) {}
+  delay(5);  // ~200 Hz loop rate (cepat untuk mixer)
 }
 
+// Fungsi helper: Arm semua ESC
+void armESCs() {
+  writeAllESC(1000);
+  delay(2000);  // Biarkan ESC kalibrasi (beep biasanya)
+}
+
+// Fungsi helper: Tulis nilai sama ke semua ESC
 void writeAllESC(int value) {
   esc1.writeMicroseconds(value);
   esc2.writeMicroseconds(value);
