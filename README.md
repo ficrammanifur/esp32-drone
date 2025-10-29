@@ -79,7 +79,7 @@
 
 <p align="center">
   <img src="/assets/drone_demo.gif?height=400&width=700" alt="ESP32 Drone Flight Demo" width="700"/><br/>
-  <em>Example: Drone Autonomous Flight with Stabilization</em>
+  <em>Drone Autonomous Testing Flight with Stabilization</em>
 </p>
 
 ---
