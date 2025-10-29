@@ -289,15 +289,15 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    POWER_ON[ESP32 Power ON]
-    LOAD_CONFIG[Load Configuration<br/>(Wi-Fi SSID, PID gains, pin config)]
-    INIT_I2C[Initialize I2C Bus<br/>(untuk IMU & Barometer)]
-    INIT_SPI[Initialize SPI Bus<br/>(opsional, untuk SD card logging)]
-    CALIB_IMU[Calibrate IMU<br/>(offset gyro & accel)]
-    START_WIFI[Start Wi-Fi Access Point<br/>/ Connect to Router]
-    START_SERVER[Start Web Server<br/>(port 80)]
-    INIT_ESC_ARM[Initialize ESC<br/>(send 1000µs pulse untuk arm)]
-    READY[System Ready<br/>- Waiting for Input]
+    POWER_ON["ESP32 Power ON"]
+    LOAD_CONFIG["Load Configuration<br/>(Wi-Fi SSID, PID gains, pin config)"]
+    INIT_I2C["Initialize I2C Bus<br/>(untuk IMU & Barometer)"]
+    INIT_SPI["Initialize SPI Bus<br/>(opsional, untuk SD card logging)"]
+    CALIB_IMU["Calibrate IMU<br/>(offset gyro & accel)"]
+    START_WIFI["Start Wi-Fi Access Point<br/>/ Connect to Router"]
+    START_SERVER["Start Web Server<br/>(port 80)"]
+    INIT_ESC_ARM["Initialize ESC<br/>(send 1000µs pulse untuk arm)"]
+    READY["System Ready<br/>- Waiting for Input"]
 
     POWER_ON --> LOAD_CONFIG
     LOAD_CONFIG --> INIT_I2C
@@ -309,25 +309,25 @@ flowchart TD
     INIT_ESC_ARM --> READY
 
     classDef init fill:#99ff99,stroke:#000,stroke-width:2px
-    class init init
+    class POWER_ON,LOAD_CONFIG,INIT_I2C,INIT_SPI,CALIB_IMU,START_WIFI,START_SERVER,INIT_ESC_ARM,READY init
 ```
 
 ### 2. Pembacaan Sensor (10ms interval)
 
 ```mermaid
 flowchart TD
-    READ_MPU[Read MPU6050 (I2C)]
-    ACCEL[Accelerometer<br/>(ax, ay, az)]
-    GYRO[Gyroscope<br/>(gx, gy, gz)]
-    TEMP_MPU[Temperature]
-    READ_BMP[Read BMP280 (I2C)]
-    PRESSURE[Pressure]
-    TEMP_BMP[Temperature]
-    CALC_ALT[Calculate Altitude]
-    SENSOR_FUSION[Sensor Fusion<br/>(Complementary Filter)]
-    PITCH_FORMULA[Pitch = 0.98 * (Pitch + gx*dt)<br/>+ 0.02 * atan2(ay, az)]
-    ROLL_FORMULA[Roll = 0.98 * (Roll + gy*dt)<br/>+ 0.02 * atan2(ax, az)]
-    YAW_FORMULA[Yaw = Yaw + gz*dt]
+    READ_MPU["Read MPU6050 (I2C)"]
+    ACCEL["Accelerometer<br/>(ax, ay, az)"]
+    GYRO["Gyroscope<br/>(gx, gy, gz)"]
+    TEMP_MPU["Temperature"]
+    READ_BMP["Read BMP280 (I2C)"]
+    PRESSURE["Pressure"]
+    TEMP_BMP["Temperature"]
+    CALC_ALT["Calculate Altitude"]
+    SENSOR_FUSION["Sensor Fusion<br/>(Complementary Filter)"]
+    PITCH_FORMULA["Pitch = 0.98 * (Pitch + gx*dt)<br/>+ 0.02 * atan2(ay, az)"]
+    ROLL_FORMULA["Roll = 0.98 * (Roll + gy*dt)<br/>+ 0.02 * atan2(ax, az)"]
+    YAW_FORMULA["Yaw = Yaw + gz*dt"]
 
     READ_MPU --> ACCEL
     READ_MPU --> GYRO
