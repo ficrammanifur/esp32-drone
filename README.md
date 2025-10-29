@@ -100,7 +100,7 @@
 | **Flask Server (opsional)** | Middleware backend | Untuk monitoring atau AI control dari PC |
 
 <p align="center">
-  <img src="/assets/drone_schematic.png?height=400&width=700" alt="ESP32 Drone Wiring Diagram" width="700"/><br/>
+  <img src="/assets/Schematic-DRONE.png?height=400&width=700" alt="ESP32 Drone Wiring Diagram" width="700"/><br/>
   <em>Example Wiring Diagram ESP32 Drone Integration</em>
 </p>
 
