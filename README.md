@@ -101,7 +101,7 @@
 
 <p align="center">
   <img src="/assets/Schematic-DRONE.png?height=400&width=700" alt="ESP32 Drone Wiring Diagram" width="700"/><br/>
-  <em> Wiring Diagram ESP32 Drone Integration</em>
+  <em> Wiring Diagram ESP32 Drone Integration</em><br/>
   ⚙️ <strong>Notes:</strong><br/>
   🔹 ESP32 mendapatkan power (VCC & GND) dari pin power <strong>FlySky FS-iA6B Receiver</strong>.<br/>
   🔹 Jalur <strong>iBUS (data)</strong> dari receiver terhubung ke pin <strong>RX (mis. GPIO16)</strong> pada ESP32.<br/>
