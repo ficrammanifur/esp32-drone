@@ -78,7 +78,7 @@
 > - **Failsafe system** auto-landing jika RC signal hilang
 
 <p align="center">
-  <img src="/assets/drone_flight_demo.gif?height=400&width=700" alt="ESP32 Drone Flight Demo" width="700"/><br/>
+  <img src="/assets/drone_demo.gif?height=400&width=700" alt="ESP32 Drone Flight Demo" width="700"/><br/>
   <em>Example: Drone Autonomous Flight with Stabilization</em>
 </p>
 
