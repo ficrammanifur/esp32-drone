@@ -206,50 +206,79 @@
 
 ### Flowchart Sistem
 
-```
-START
-  │
-  ├─→ Initialize WiFi & Web Server
-  │
-  ├─→ Initialize Sensors (IMU, Barometer)
-  │
-  ├─→ Initialize ESC & Motors
-  │
-  ├─→ Main Loop (100Hz)
-  │   │
-  │   ├─→ Read IMU Data (gyro, accel)
-  │   │
-  │   ├─→ Read Barometer (altitude)
-  │   │
-  │   ├─→ Read RC Input (FlySky iBUS)
-  │   │
-  │   ├─→ Read Web Input (joystick)
-  │   │
-  │   ├─→ Calculate PID Corrections
-  │   │   ├─ Pitch PID
-  │   │   ├─ Roll PID
-  │   │   ├─ Yaw PID
-  │   │   └─ Altitude PID
-  │   │
-  │   ├─→ Check Failsafe Conditions
-  │   │   ├─ RC signal lost?
-  │   │   ├─ Battery low?
-  │   │   ├─ Sensor error?
-  │   │   └─ Tilt angle > 45°?
-  │   │
-  │   ├─→ Calculate Motor PWM Values
-  │   │   ├─ Motor1 = Throttle + Pitch + Roll - Yaw
-  │   │   ├─ Motor2 = Throttle - Pitch + Roll + Yaw
-  │   │   ├─ Motor3 = Throttle - Pitch - Roll - Yaw
-  │   │   └─ Motor4 = Throttle + Pitch - Roll + Yaw
-  │   │
-  │   ├─→ Send PWM to ESC
-  │   │
-  │   ├─→ Send Status to Web UI
-  │   │
-  │   └─→ Loop back
-  │
-  └─→ END
+```mermaid
+flowchart TD
+    START([START])
+    INIT_WIFI["Initialize WiFi & Web Server"]
+    INIT_SENSORS["Initialize Sensors<br/>(IMU, Barometer)"]
+    INIT_ESC["Initialize ESC & Motors"]
+    MAIN_LOOP{"Main Loop<br/>(100Hz)"}
+    READ_IMU["Read IMU Data<br/>(gyro, accel)"]
+    READ_BARO["Read Barometer<br/>(altitude)"]
+    READ_RC["Read RC Input<br/>(FlySky iBUS)"]
+    READ_WEB["Read Web Input<br/>(joystick)"]
+    CALC_PID["Calculate PID Corrections"]
+    PID_PITCH["Pitch PID"]
+    PID_ROLL["Roll PID"]
+    PID_YAW["Yaw PID"]
+    PID_ALT["Altitude PID"]
+    CHECK_FAILSAFE["Check Failsafe Conditions"]
+    FS_RC["RC signal lost?"]
+    FS_BAT["Battery low?"]
+    FS_SENSOR["Sensor error?"]
+    FS_TILT["Tilt angle > 45°?"]
+    CALC_PWM["Calculate Motor PWM Values"]
+    PWM_M1["Motor1 = Throttle + Pitch + Roll - Yaw"]
+    PWM_M2["Motor2 = Throttle - Pitch + Roll + Yaw"]
+    PWM_M3["Motor3 = Throttle - Pitch - Roll - Yaw"]
+    PWM_M4["Motor4 = Throttle + Pitch - Roll + Yaw"]
+    SEND_PWM["Send PWM to ESC"]
+    SEND_STATUS["Send Status to Web UI"]
+    LOOP_BACK["Loop back"]
+    END([END])
+
+    START --> INIT_WIFI
+    INIT_WIFI --> INIT_SENSORS
+    INIT_SENSORS --> INIT_ESC
+    INIT_ESC --> MAIN_LOOP
+    MAIN_LOOP --> READ_IMU
+    READ_IMU --> READ_BARO
+    READ_BARO --> READ_RC
+    READ_RC --> READ_WEB
+    READ_WEB --> CALC_PID
+    CALC_PID --> PID_PITCH
+    PID_PITCH --> PID_ROLL
+    PID_ROLL --> PID_YAW
+    PID_YAW --> PID_ALT
+    PID_ALT --> CHECK_FAILSAFE
+    CHECK_FAILSAFE --> FS_RC
+    FS_RC --> FS_BAT
+    FS_BAT --> FS_SENSOR
+    FS_SENSOR --> FS_TILT
+    FS_TILT --> CALC_PWM
+    CALC_PWM --> PWM_M1
+    PWM_M1 --> PWM_M2
+    PWM_M2 --> PWM_M3
+    PWM_M3 --> PWM_M4
+    PWM_M4 --> SEND_PWM
+    SEND_PWM --> SEND_STATUS
+    SEND_STATUS --> LOOP_BACK
+    LOOP_BACK --> MAIN_LOOP
+    MAIN_LOOP -.->|End Condition| END
+
+    classDef startEnd fill:#ff9999,stroke:#000,stroke-width:2px
+    classDef init fill:#99ff99,stroke:#000,stroke-width:2px
+    classDef loop fill:#9999ff,stroke:#000,stroke-width:2px
+    classDef pid fill:#ffff99,stroke:#000,stroke-width:2px
+    classDef failsafe fill:#ffcc99,stroke:#000,stroke-width:2px
+    classDef output fill:#ccff99,stroke:#000,stroke-width:2px
+
+    class START,END startEnd
+    class INIT_WIFI,INIT_SENSORS,INIT_ESC init
+    class READ_IMU,READ_BARO,READ_RC,READ_WEB,LOOP_BACK loop
+    class CALC_PID,PID_PITCH,PID_ROLL,PID_YAW,PID_ALT pid
+    class CHECK_FAILSAFE,FS_RC,FS_BAT,FS_SENSOR,FS_TILT failsafe
+    class CALC_PWM,PWM_M1,PWM_M2,PWM_M3,PWM_M4,SEND_PWM,SEND_STATUS output
 ```
 
 ---
@@ -258,43 +287,71 @@ START
 
 ### 1. Inisialisasi Sistem
 
-```
-ESP32 Power ON
-  ↓
-Load Configuration (Wi-Fi SSID, PID gains, pin config)
-  ↓
-Initialize I2C Bus (untuk IMU & Barometer)
-  ↓
-Initialize SPI Bus (opsional, untuk SD card logging)
-  ↓
-Calibrate IMU (offset gyro & accel)
-  ↓
-Start Wi-Fi Access Point / Connect to Router
-  ↓
-Start Web Server (port 80)
-  ↓
-Initialize ESC (send 1000µs pulse untuk arm)
-  ↓
-System Ready - Waiting for Input
+```mermaid
+flowchart TD
+    POWER_ON[ESP32 Power ON]
+    LOAD_CONFIG[Load Configuration<br/>(Wi-Fi SSID, PID gains, pin config)]
+    INIT_I2C[Initialize I2C Bus<br/>(untuk IMU & Barometer)]
+    INIT_SPI[Initialize SPI Bus<br/>(opsional, untuk SD card logging)]
+    CALIB_IMU[Calibrate IMU<br/>(offset gyro & accel)]
+    START_WIFI[Start Wi-Fi Access Point<br/>/ Connect to Router]
+    START_SERVER[Start Web Server<br/>(port 80)]
+    INIT_ESC_ARM[Initialize ESC<br/>(send 1000µs pulse untuk arm)]
+    READY[System Ready<br/>- Waiting for Input]
+
+    POWER_ON --> LOAD_CONFIG
+    LOAD_CONFIG --> INIT_I2C
+    INIT_I2C --> INIT_SPI
+    INIT_SPI --> CALIB_IMU
+    CALIB_IMU --> START_WIFI
+    START_WIFI --> START_SERVER
+    START_SERVER --> INIT_ESC_ARM
+    INIT_ESC_ARM --> READY
+
+    classDef init fill:#99ff99,stroke:#000,stroke-width:2px
+    class init init
 ```
 
 ### 2. Pembacaan Sensor (10ms interval)
 
-```
-Read MPU6050 (I2C)
-  ├─ Accelerometer (ax, ay, az)
-  ├─ Gyroscope (gx, gy, gz)
-  └─ Temperature
+```mermaid
+flowchart TD
+    READ_MPU[Read MPU6050 (I2C)]
+    ACCEL[Accelerometer<br/>(ax, ay, az)]
+    GYRO[Gyroscope<br/>(gx, gy, gz)]
+    TEMP_MPU[Temperature]
+    READ_BMP[Read BMP280 (I2C)]
+    PRESSURE[Pressure]
+    TEMP_BMP[Temperature]
+    CALC_ALT[Calculate Altitude]
+    SENSOR_FUSION[Sensor Fusion<br/>(Complementary Filter)]
+    PITCH_FORMULA[Pitch = 0.98 * (Pitch + gx*dt)<br/>+ 0.02 * atan2(ay, az)]
+    ROLL_FORMULA[Roll = 0.98 * (Roll + gy*dt)<br/>+ 0.02 * atan2(ax, az)]
+    YAW_FORMULA[Yaw = Yaw + gz*dt]
 
-Read BMP280 (I2C)
-  ├─ Pressure
-  ├─ Temperature
-  └─ Calculate Altitude
+    READ_MPU --> ACCEL
+    READ_MPU --> GYRO
+    READ_MPU --> TEMP_MPU
+    READ_BMP --> PRESSURE
+    READ_BMP --> TEMP_BMP
+    READ_BMP --> CALC_ALT
+    ACCEL --> SENSOR_FUSION
+    GYRO --> SENSOR_FUSION
+    TEMP_MPU --> SENSOR_FUSION
+    PRESSURE --> SENSOR_FUSION
+    TEMP_BMP --> SENSOR_FUSION
+    CALC_ALT --> SENSOR_FUSION
+    SENSOR_FUSION --> PITCH_FORMULA
+    SENSOR_FUSION --> ROLL_FORMULA
+    SENSOR_FUSION --> YAW_FORMULA
 
-Sensor Fusion (Complementary Filter)
-  ├─ Pitch = 0.98 * (Pitch + gx*dt) + 0.02 * atan2(ay, az)
-  ├─ Roll = 0.98 * (Roll + gy*dt) + 0.02 * atan2(ax, az)
-  └─ Yaw = Yaw + gz*dt
+    classDef read fill:#9999ff,stroke:#000,stroke-width:2px
+    classDef data fill:#ffff99,stroke:#000,stroke-width:2px
+    classDef fusion fill:#ffcc99,stroke:#000,stroke-width:2px
+
+    class READ_MPU,READ_BMP read
+    class ACCEL,GYRO,TEMP_MPU,PRESSURE,TEMP_BMP,CALC_ALT data
+    class SENSOR_FUSION,PITCH_FORMULA,ROLL_FORMULA,YAW_FORMULA fusion
 ```
 
 ### 3. Kontrol Input (Dual Mode)
@@ -313,7 +370,7 @@ Map to -100 to +100 range
 ```
 
 **Mode Web Control:**
-\`\`\`
+```
 Receive JSON dari Web UI
   {
     "throttle": 50,
