@@ -301,7 +301,6 @@ flowchart TD
     START_SERVER["Start Web Server<br/>(port 80)"]
     INIT_ESC_ARM["Initialize ESC<br/>(send 1000µs pulse untuk arm)"]
     READY["System Ready<br/>- Waiting for Input"]
-
     POWER_ON --> LOAD_CONFIG
     LOAD_CONFIG --> INIT_I2C
     INIT_I2C --> INIT_SPI
@@ -310,8 +309,7 @@ flowchart TD
     START_WIFI --> START_SERVER
     START_SERVER --> INIT_ESC_ARM
     INIT_ESC_ARM --> READY
-
-    classDef init fill:#99ff99,stroke:#000,stroke-width:2px
+    classDef init fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
     class POWER_ON,LOAD_CONFIG,INIT_I2C,INIT_SPI,CALIB_IMU,START_WIFI,START_SERVER,INIT_ESC_ARM,READY init
 ```
 
@@ -331,7 +329,6 @@ flowchart TD
     PITCH_FORMULA["Pitch = 0.98 * (Pitch + gx*dt)<br/>+ 0.02 * atan2(ay, az)"]
     ROLL_FORMULA["Roll = 0.98 * (Roll + gy*dt)<br/>+ 0.02 * atan2(ax, az)"]
     YAW_FORMULA["Yaw = Yaw + gz*dt"]
-
     READ_MPU --> ACCEL
     READ_MPU --> GYRO
     READ_MPU --> TEMP_MPU
@@ -347,11 +344,9 @@ flowchart TD
     SENSOR_FUSION --> PITCH_FORMULA
     SENSOR_FUSION --> ROLL_FORMULA
     SENSOR_FUSION --> YAW_FORMULA
-
-    classDef read fill:#9999ff,stroke:#000,stroke-width:2px
-    classDef data fill:#ffff99,stroke:#000,stroke-width:2px
-    classDef fusion fill:#ffcc99,stroke:#000,stroke-width:2px
-
+    classDef read fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef data fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef fusion fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
     class READ_MPU,READ_BMP read
     class ACCEL,GYRO,TEMP_MPU,PRESSURE,TEMP_BMP,CALC_ALT data
     class SENSOR_FUSION,PITCH_FORMULA,ROLL_FORMULA,YAW_FORMULA fusion
