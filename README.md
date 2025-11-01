@@ -242,7 +242,6 @@ flowchart TD
     SEND_STATUS["Send Status to Web UI"]
     LOOP_BACK["Loop back"]
     END([END])
-
     START --> INIT_WIFI
     INIT_WIFI --> INIT_SENSORS
     INIT_SENSORS --> INIT_ESC
@@ -271,14 +270,12 @@ flowchart TD
     SEND_STATUS --> LOOP_BACK
     LOOP_BACK --> MAIN_LOOP
     MAIN_LOOP -.->|End Condition| END
-
-    classDef startEnd fill:#ff9999,stroke:#000,stroke-width:2px
-    classDef init fill:#99ff99,stroke:#000,stroke-width:2px
-    classDef loop fill:#9999ff,stroke:#000,stroke-width:2px
-    classDef pid fill:#ffff99,stroke:#000,stroke-width:2px
-    classDef failsafe fill:#ffcc99,stroke:#000,stroke-width:2px
-    classDef output fill:#ccff99,stroke:#000,stroke-width:2px
-
+    classDef startEnd fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+    classDef init fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef loop fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef pid fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef failsafe fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
+    classDef output fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
     class START,END startEnd
     class INIT_WIFI,INIT_SENSORS,INIT_ESC init
     class READ_IMU,READ_BARO,READ_RC,READ_WEB,LOOP_BACK loop
